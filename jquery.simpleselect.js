@@ -1,3 +1,11 @@
+/* jquery.simpleselect
+-- version 0.1.1
+-- copyright 2014 UndeadBane*2014
+-- licensed under the MIT
+--
+-- https://github.com/UndeadBaneGitHub/jquery.simpleselect
+--
+*/
 (function ($) {
     var _SimpleSelect = function (element, source, options) {
         var _htmlToArray = function(source){
@@ -30,7 +38,8 @@
             forceValueToListValue: true,
             placeholderValue: "",
             placeholderStyle: {
-                //You can put any DOM style params here - they all will be set. Or leave it blank for CSS to rule the style
+                // You can put any DOM style params here - they all will be set. 
+                // Or leave it blank for CSS to rule the style
                 color: "lightgray"
             },
             scrollIntoViewIfNeeded: true,
