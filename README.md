@@ -14,6 +14,6 @@ Welcome, feel like at home!
 
 ##LICENSE
 
-### Copyright 2011-13 UndeadBane
+### Copyright 2014 UndeadBane
 
 ######Licensed under the MIT License, http://www.opensource.org/licenses/mit-license.php
