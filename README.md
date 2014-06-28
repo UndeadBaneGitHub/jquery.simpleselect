@@ -8,7 +8,7 @@ Or next, you need to style the list items in some specific way, but all the plug
 Or, maybe, you just need a search and filter, attached to your select as it is HUGE?
 Or you are in need of autocomplete that does not act wonky (as, let's be honest, most of them do)?
 
-And you need all of that as SIMPLE as possible - everyone does. Well, I used to be you - and I had to write this plugin.
+And you need all of that as ***simple*** as possible - everyone does. Well, I used to be you - and I had to write this plugin.
 Welcome, feel like at home!
 
 
