@@ -1,0 +1,60 @@
+﻿.simple-select-items-wrapper {
+    position: absolute;
+    background: white;
+    border: 1px solid #93BAF7;
+    max-height: 15em;
+    max-width: 20em;
+    -webkit-touch-callout: none;
+    -webkit-user-select: none;
+    -khtml-user-select: none;
+    -moz-user-select: none;
+    -ms-user-select: none;
+    user-select: none;
+    z-index: 10000;
+}
+
+.simple-select-item {
+    cursor: pointer;
+    padding: 0.3em 0.3em 0.3em 1em;
+}
+
+    .simple-select-item:hover, .simple-select-item.hovered {
+        background-color: #DCE6F2;
+    }
+
+    .simple-select-item .highlight {
+        /*anti-chrome fix, must stay unless a parameter is explicitly defined further*/
+        /*font-weight: inherit;*/
+        line-height: inherit;
+        /*margin: inherit;*/
+        font-size: inherit;
+        /*padding: inherit;*/
+        word-wrap: inherit;
+    }
+
+    .simple-select-item .highlight {
+        /*actual style parameters*/
+        background-color: transparent;
+        font-weight: bold;
+        text-decoration: underline;
+        margin: 0;
+        padding: 0;
+    }
+
+    .simple-select-item.empty-list-item {
+        background-color: lightgray;
+    }
+
+.simple-select-arrow {
+    border: none;
+    padding: 0;
+    margin: 0;
+    width: 8px;
+    position: absolute;
+    font-size:0.6em;
+    line-height:2.5em;
+    cursor:pointer;
+}
+    .simple-select-arrow:hover {
+        font-weight:bolder;
+    }
