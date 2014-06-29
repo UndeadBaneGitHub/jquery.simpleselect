@@ -38,8 +38,7 @@
             forceValueToListValue: true,
             placeholderValue: "",
             placeholderStyle: {
-                // You can put any DOM style params here - they all will be set. 
-                // Or leave it blank for CSS to rule the style
+                //You can put any DOM style params here - they all will be set. Or leave it blank for CSS to rule the style
                 color: "lightgray"
             },
             scrollIntoViewIfNeeded: true,
@@ -274,9 +273,9 @@
                 $(currentItemsWrapper).scrollIntoViewIfNeeded();
             }
 
-            this.updateScroll(!_isAddedToDocument);
             _isOpen = true;
-
+            this.updateScroll(!_isAddedToDocument);
+            
             $(_element).focus();
             _selectElementContents(_element, this.getElementText().length, this.getElementText().length);
 
@@ -552,7 +551,7 @@
                         $(this.getItemsWrapper()).getNiceScroll().show();
                         $(this.getItemsWrapper()).getNiceScroll().resize();
                     } else {
-                        $(this.getItemsWrapper()).hide();
+                        $(this.getItemsWrapper()).getNiceScroll().hide();
                     }
                 }
             }
