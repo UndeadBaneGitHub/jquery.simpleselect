@@ -1,5 +1,5 @@
 /* jquery.simpleselect
--- version 0.1.1
+-- version 0.2.1
 -- copyright 2014 UndeadBane*2014
 -- licensed under the MIT
 --
@@ -30,10 +30,11 @@
             useEscapedElementText: false,
             openEvent: "click",
             searchEvent: "keyup",
-            niceScrollOptions: {
-                cursorwidth: 9,
-                cursoropacitymax: 0.8
-            },
+            //niceScrollOptions: {
+            //    cursorwidth: 6,
+            //    cursoropacitymax: 0.8,
+            //    horizrailenabled: false
+            //},
             emptyListItemContent: "Совпадений не найдено",
             forceValueToListValue: true,
             placeholderValue: "",
@@ -44,7 +45,14 @@
             scrollIntoViewIfNeeded: true,
             preventClosingOnSelect: false,
             doNotSelectOnClicksTo: "",
-            drawArrow: true
+            drawArrow: true,
+            drawPosition: "bottom left", // bottom right is now supported as well
+            // now supporting right position
+            doNotModifyElementText: false,
+            itemGetElementTextFunction: null,
+            itemSetElementTextFunction: null,
+            openOnSearch: false,
+            updatePositionOnOpen: false,
         };
         var _arrowDiv = null;
 
@@ -70,6 +78,27 @@
                 left: $(base).position().left
             };
 
+            var itemsWrapperHeight = parseFloat($(_itemsWrapper).css("height") || $(_itemsWrapper).css("max-height")),
+                itemsWrapperWidth = parseFloat($(_itemsWrapper).css("width") || $(_itemsWrapper).css("max-width"));
+
+            if (!itemsWrapperHeight || !itemsWrapperWidth) {
+                var elMeasurements = _measureElement(_itemsWrapper);
+
+                itemsWrapperHeight = elMeasurements.height;
+                itemsWrapperWidth = elMeasurements.width;
+            }
+
+            if (!itemsWrapperHeight || !itemsWrapperWidth) {
+                return 0;
+            }
+
+            if (_options.drawPosition.indexOf(" right") !== -1) {
+                itemsWrapperCoord.left -= itemsWrapperWidth - $(base).outerWidth();
+            }
+            if (_options.drawPosition.indexOf("right") === 0) {
+                itemsWrapperCoord.top -= $(base).outerHeight();
+                itemsWrapperCoord.left += $(base).outerWidth();
+            }
             // insertion level 1 = insert to direct parent,
             // it does not need calculation, so we skip it
             for (var o = 1; o < insertionLevel; o++) {
@@ -94,6 +123,21 @@
             el.remove();
 
             return retVal;
+        }
+
+        var _correctItemsWrapperCoordinatesForOptions = function (element, itemsWrapperWidth, itemsWrapperHeight, itemsWrapperCoordinates) {
+            if (_options.drawPosition.indexOf(" right") !== -1) {
+                itemsWrapperCoordinates.left -= itemsWrapperWidth - $(element).outerWidth();
+                itemsWrapperCoordinates.right -= itemsWrapperWidth - $(element).outerWidth();
+                
+                return;
+            }
+            if (_options.drawPosition.indexOf("right") === 0) {
+                itemsWrapperCoordinates.top -= $(element).outerHeight();
+                itemsWrapperCoordinates.bottom -= $(element).outerHeight();
+                itemsWrapperCoordinates.left += $(element).outerWidth();
+                itemsWrapperCoordinates.right += $(element).outerWidth();
+            }
         }
 
         var _getInsertionLevel = function(element, goUp){
@@ -125,6 +169,8 @@
                         bottom: $(element).offset().top + multiplier01 * $(element).outerHeight() + multiplier1minus1 * itemsWrapperHeight,
                         right: $(element).offset().left + itemsWrapperWidth
                     };
+
+                    _correctItemsWrapperCoordinatesForOptions(element, itemsWrapperWidth, itemsWrapperHeight, _itemsWrapperCoordinates);
                 } else {
                     _itemsWrapperCoordinates = itemsWrapperCoordinates;
                 }
@@ -135,8 +181,27 @@
 
                 var elementParent = element.parentNode;
                 //
-                if (!$(elementParent).isScrollable() &&
-                    (_itemsWrapperCoordinates.bottom > $(elementParent).offset().top + $(elementParent).height())) { //if this element is to be overflown and has hidden overflow we go higher
+                var checkingPointX = 0;
+                if (_options.drawPosition.indexOf("right") === 0) { //right
+                    checkingPointX = _itemsWrapperCoordinates.right;
+                } else if (_options.drawPosition.indexOf("bottom right") === 0) {
+                    checkingPointX = _itemsWrapperCoordinates.left;
+                } else if (_options.drawPosition.indexOf("bottom left") === 0) {
+                    checkingPointX = _itemsWrapperCoordinates.right;
+                } else {
+                    checkingPointX = (_itemsWrapperCoordinates.right + _itemsWrapperCoordinates.left) / 2;
+                }
+
+                var needsScrollY = _itemsWrapperCoordinates.bottom > ($(elementParent).offset().top + $(elementParent).height()),
+                    needsScrollX = checkingPointX > ($(elementParent).offset().left + $(elementParent).width());
+                if (needsScrollY) {
+                    scrollableY = $(elementParent).isScrollable("y")
+                }
+                if (needsScrollX) {
+                    scrollableX = $(elementParent).isScrollable("x");
+                }
+                    
+                if ((needsScrollY && !scrollableY) || (needsScrollX && !scrollableX)) { //if this element is to be overflown and has hidden overflow we go higher
                     insertionLevel += _innerGetInsertionLevel(elementParent, goUp, _itemsWrapperCoordinates, _currentY, _lastFixedCoord, _scrollableParent, _limitYhasBeenReached);
                 } else {
                     var iterationHeightIncrement = 10;
@@ -148,9 +213,12 @@
                         _scrollableParent = scrollableParent || null;
 
                     _scrollableParent = element;
+                    var _scrollableParentFound = $(_scrollableParent).isScrollable("y");
+                    
+                    if (!_scrollableParentFound) {
+                        while (!(_scrollableParentFound = $(_scrollableParent = _scrollableParent.parentNode).isScrollable("y")) && !/HTML/.test(_scrollableParent.nodeName));
+                    }
 
-                    var _scrollableParentFound = false;
-                    while (!(_scrollableParentFound = $(_scrollableParent = _scrollableParent.parentNode).isScrollable("y")) && !/HTML/.test(_scrollableParent.nodeName));
                     if (!_scrollableParentFound) {
                         return insertionLevel;
                     }
@@ -167,7 +235,7 @@
                         }
 
                         middleElement = document.elementFromPoint(
-                            (_itemsWrapperCoordinates.right + _itemsWrapperCoordinates.left) / 2,
+                            checkingPointX,
                             _limitYhasBeenReached ? _lastFixedCoord : _currentY);
 
                         if (!middleElement) {
@@ -199,11 +267,53 @@
             return _innerGetInsertionLevel(element, goUp);
         }
 
+
+        var _insertWrapperIntoTheDocument = function (currentItemsWrapper) {
+            var insertionLevel = _getInsertionLevel(_element);
+            if (!insertionLevel) {
+                throw (new Error("Failed to find insertion level!"));
+            }
+            currentItemsWrapper.insertionLevel = insertionLevel;
+    
+            _setWrapperPosition(currentItemsWrapper);
+        }
+
+        var _updateWrapperPosition = function (currentItemsWrapper) {
+            var newInsertionLevel = _getInsertionLevel(_element);
+            if (!newInsertionLevel) {
+                throw (new Error("Failed to find insertion level!"));
+            }
+
+            if (newInsertionLevel !== currentItemsWrapper.insertionLevel) {
+                currentItemsWrapper.insertionLevel = newInsertionLevel;
+                _setWrapperPosition(currentItemsWrapper);
+            }
+        }
+        var _setWrapperPosition = function (currentItemsWrapper) {
+            var insertionElement = _element.parentNode;
+            for (var o = 1; o < currentItemsWrapper.insertionLevel ; o++) {
+                insertionElement = insertionElement.parentNode;
+            }
+            var itemsWrapperCoord = _getInsertionCoord(currentItemsWrapper.insertionLevel);
+
+            if (_options.preserveElementMargin) {
+                var marginCompensator = parseFloat($(_element).css("margin-bottom")); //jQuery returns CALCULATED margin bottom
+                itemsWrapperCoord.top += marginCompensator;
+            }
+
+            $(currentItemsWrapper).css({ top: itemsWrapperCoord.top, left: itemsWrapperCoord.left });
+
+            $(insertionElement).append(currentItemsWrapper);
+
+            currentItemsWrapper.style.display = "none";
+            _isOpen = false;
+        }
+
         this.open = function () {
             if (_isOpen) {
                 return;
             }
-            _removePlaceholder();
+            //_removePlaceholder();
 
             var currentSimpleSelect = this;
             var currentItemsWrapper = this.getItemsWrapper();
@@ -211,7 +321,7 @@
             var itemsWrapperAlreadyAdded = false;
 
             var elementText = this.getElementText();
-            $(_element).data({ oldText: elementText });
+            _element.oldText = elementText;
 
             _isAddedToDocument = currentItemsWrapper.id ? 
                 $("#" + currentItemsWrapper.id).get(0) === currentItemsWrapper :
@@ -230,28 +340,17 @@
                     minHeight: this.getDimensionValue(_element, "min-height")
                 });
 
-                var insertionLevel = _getInsertionLevel(_element);
-                if (!insertionLevel) {
-                    throw (new Error("Failed to find insertion level!"));
-                }
-                var insertionElement = _element.parentNode;
-                for (var o = 1; o < insertionLevel; o++) {
-                    insertionElement = insertionElement.parentNode;
-                }
-                var itemsWrapperCoord = _getInsertionCoord(insertionLevel);
+                _insertWrapperIntoTheDocument(currentItemsWrapper);
 
-                if (_options.preserveElementMargin) {
-                    var marginCompensator = parseFloat($(_element).css("margin-bottom")); //jQuery returns CALCULATED margin bottom
-                    itemsWrapperCoord.top += marginCompensator;
-                }
-
-                $(currentItemsWrapper).css({ top: itemsWrapperCoord.top, left: itemsWrapperCoord.left });
-
-                $(insertionElement).append(currentItemsWrapper);
+                currentItemsWrapper.style.display = "";
 
                 this.setScroll();
             } else {
                 currentItemsWrapper.style.display = "";
+
+                if (_options.updatePositionOnOpen) {
+                    _updateWrapperPosition(currentItemsWrapper);
+                }
             }
 
             //select and scroll element containing the text into view
@@ -276,7 +375,11 @@
             _isOpen = true;
             this.updateScroll(!_isAddedToDocument);
             
-            $(_element).focus();
+            if (!_options.doNotModifyElementText) {
+                $(_element).focus();
+            } else {
+                $(currentItemsWrapper).focus();
+            }
             _selectElementContents(_element, this.getElementText().length, this.getElementText().length);
 
             _setArrowUp();
@@ -294,10 +397,8 @@
             var currentItemsWrapper = this.getItemsWrapper();
 
             if (revertToOldText) {
-                this.setElementText($(_element).data("oldText"));
+                this.setElementText(_element.oldText);
                 $(_element).trigger("simple-select-input-canceled");
-            } else {
-                $(_element).data("oldText", this.getElementText());
             }
 
             var elementText = this.getElementText();
@@ -320,7 +421,7 @@
                 });
             }
 
-            if (_options.forceValueToListValue && elementText && !textFound) {
+            if ((_options.forceValueToListValue && !_options.doNotModifyElementText) && elementText && !textFound && elementText !== _options.placeholderValue) {
                 return;
             }
             this.getItemsWrapper().style.display = "none";
@@ -334,9 +435,19 @@
             if (elementText) {
                 $(_element).trigger('simple-select-selected');
             }
+
+            _element.oldText = this.getElementText();
         }
 
         this.search = function (text) {
+            if (!_isOpen) {
+                if (!_options.openOnSearch) {
+                    return;
+                } else {
+                    this.open();
+                }
+            }
+
             _removePlaceholder();
 
             var currentSimpleSelect = this;
@@ -416,7 +527,11 @@
 
         this.setItems = function (source) {
             _itemsArray = (Object.prototype.toString.call(source) === '[object Array]') ? source : _htmlToArray(source);
+            var currentItemsWrapper = self.getItemsWrapper();
+
             _fillItemsWrapper();
+
+            _updateWrapperPosition(currentItemsWrapper);
             self.updateScroll();
         }
 
@@ -427,13 +542,25 @@
                 var currentElement = document.createElement("div");
                 currentElement.className = "simple-select-item";
                 currentElement.id = "simple-select-item-" + o;
-                currentElement.innerHTML = _itemsArray[o];
+
+                if (_itemsArray[o].nodeType === 1) {
+                    currentElement.appendChild(_itemsArray[o]);
+                } else {
+                    currentElement.innerHTML = _itemsArray[o];
+                }
 
                 if (_options.itemFont === "element") {
                     $(currentElement).css({
-                        font: $(_element).css("font")
+                        font: $(_element).css("font"),
+                        fontFamily: $(_element).css("font-family"),
+                        fontSize: $(_element).css("font-size"),
+                        fontStyle: $(_element).css("font-style"),
+                        fontWeight: $(_element).css("font-weight")
                     });
                 }
+
+                currentElement.simpleSelect_ToString = _options.itemGetElementTextFunction;
+                currentElement.simpleSelect_FromString = _options.itemSetElementTextFunction;
 
                 $(_itemsWrapper).append(currentElement);
 
@@ -509,53 +636,52 @@
         }
 
         this.getElementText = function (element) {
-            _removePlaceholder();
+            if (_options.doNotModifyElementText) {
+                return "";
+            }
 
             var innerElement = element ? element : _element;
-            if (typeof (innerElement['simpleSelectToString']) === "function") {
-                return innerElement['simpleSelectToString']();
+            if (typeof (innerElement['simpleSelect_ToString']) === "function") {
+                var _innerElementText = innerElement['simpleSelect_ToString'].call(innerElement);
             } else {
-                return (innerElement.nodeName === "input" || innerElement.nodeName === "textarea") ? $(innerElement).val() : (_options.useEscapedElementText ? $(innerElement).html() : $(innerElement).text()).replace(/(&nbsp)/g, ' ');
+                var _innerElementText = (innerElement.nodeName === "input" || innerElement.nodeName === "textarea") ? $(innerElement).val() : (_options.useEscapedElementText ? $(innerElement).html() : $(innerElement).text()).replace(/(&nbsp)/g, ' ');
+            }
+
+            if (_innerElementText) {
+                return _removePlaceholderFromText(_innerElementText.trim());
+            } else {
+                return _removePlaceholderFromText(_innerElementText);
             }
         }
         this.setElementText = function (newText, doNotUsePlaceholder, element) {
-            var innerElement = element ? element : _element;
-
-            if (typeof (innerElement['simpleSelectFromString']) === "function") {
-                innerElement['simpleSelectFromString'](newText);
+            if (_options.doNotModifyElementText) {
                 return;
-            } else {
-                (innerElement.nodeName === "input" || innerElement.nodeName === "textarea") ? $(innerElement).val(newText) : (_options.useEscapedElementText ? $(innerElement).html(newText) : $(innerElement).text(newText));
             }
 
-            if (!newText && !doNotUsePlaceholder) {
+            var _newText = newText.trim();
+
+            var innerElement = element ? element : _element;
+
+            if (typeof (innerElement['simpleSelect_FromString']) === "function") {
+                innerElement['simpleSelect_FromString'].call(innerElement, _newText);
+                return;
+            } else {
+                (innerElement.nodeName === "input" || innerElement.nodeName === "textarea") ? $(innerElement).val(_newText) : (_options.useEscapedElementText ? $(innerElement).html(_newText) : $(innerElement).text(_newText));
+            }
+
+            if (!_newText && !doNotUsePlaceholder) {
                 _setPlaceholder();
             } else {//move cursor to left
-                _selectElementContents(innerElement, newText.length, newText.length);
+                _selectElementContents(innerElement, _newText.length, _newText.length);
             }
         }
 
         this.setScroll = function () {
             currentItemsWrapper = this.getItemsWrapper();
-            if (typeof ($(currentItemsWrapper).niceScroll) === "function") {
-                currentItemsWrapper.style.overflowY = "hidden";
-                $(currentItemsWrapper).niceScroll(_options.niceScrollOptions);
-            } else {
-                $(currentItemsWrapper).style.overflowY = "scroll";
-            }
+
+            currentItemsWrapper.style.overflowY = "auto";
         }
         this.updateScroll = function (firstOpen) {
-            if (!firstOpen) {
-                if (typeof ($(this.getItemsWrapper()).niceScroll) === "function") {
-                    if (this.isOpen()) {
-                        $(this.getItemsWrapper()).getNiceScroll().show();
-                        $(this.getItemsWrapper()).getNiceScroll().resize();
-                    } else {
-                        $(this.getItemsWrapper()).getNiceScroll().hide();
-                    }
-                }
-            }
-
             if (!$(this.getItemsWrapper()).children(".simple-select-item:visible").not(".empty-list-item").length) {
                 _emptyListItem.style.display = "";
             } else {
@@ -574,9 +700,7 @@
                 $(innerElement).data("hasPlaceholder", true);
 
                 self.setElementText(_options.placeholderValue, true/*we don't need endless cycles here*/, innerElement);
-                //innerElement.style.color = _options.placeholderStyle.color;
-                //innerElement.style.font = _options.placeholderStyle.font === "element" ? $(_element).css("font") : _options.placeholderStyle.font;
-                //innerElement.style.textStyle = _options.placeholderStyle.textStyle;
+
                 for (prop in _options.placeholderStyle) {
                     innerElement.style[prop] = _options.placeholderStyle[prop];
                 }
@@ -585,6 +709,9 @@
             }
         }
         var _removePlaceholder = function (element) {
+            if (!$(element).text()) {
+                return;
+            }
             if (!_options.placeholderValue) {
                 return;
             }
@@ -595,13 +722,27 @@
                 $(innerElement).data("hasPlaceholder", false);
 
                 self.setElementText("", true, innerElement);
-                //innerElement.style.color = "";
-                //innerElement.style.font = "";
-                //innerElement.style.textStyle = "";
+
                 for (prop in _options.placeholderStyle) {
                     innerElement.style[prop] = "";
                 }
             }
+        }
+        var _removePlaceholderFromText = function (text, element) {
+            if (!text) {
+                return;
+            }
+
+            if (!_options.placeholderValue) {
+                return;
+            }
+
+            var innerElement = element ? element : _element;
+
+            if ($(innerElement).data("hasPlaceholder")) {
+                return text.replace(_options.placeholderValue, "");
+            }
+            return text;
         }
 
         var _selectElementContents = function (el, rangeStart, rangeEnd) {
@@ -743,11 +884,6 @@
             if (this.isOpen()) {
                 this.close();
             }
-            if (typeof ($(this.getItemsWrapper()).getNiceScroll) === "function") {
-                if ($(this.getItemsWrapper()).getNiceScroll().length) {
-                    $(this.getItemsWrapper()).getNiceScroll().remove();
-                }
-            }
 
             $(_element).off('keydown', _element_keydown);
 
@@ -757,7 +893,9 @@
                 $(_element).off(_options.searchEvent, _searchEvent_happened);
             }
 
-            $(this.getItemsWrapper()).remove();
+            if (_itemsWrapper) {
+                _itemsWrapper.parentNode.removeChild(_itemsWrapper);
+            }
 
             $(document).off('click', _wasClickedInside);
 
@@ -968,11 +1106,21 @@
 
     if (typeof ($.fn.removeHighlight) !== "function") {
         jQuery.fn.removeHighlight = function () {
+            var _normalize = function (element) {
+                var firstText = element.firstChild;
+                while (firstText.nextSibling && firstText.nextSibling.nodeType === 3) {
+                    if (firstText.nextSibling && firstText.nextSibling.data) {
+                        firstText.data += firstText.nextSibling.data;
+                    }
+                    firstText.parentNode.removeChild(firstText.nextSibling);
+                }
+            }
             return this.find("span.highlight").each(function () {
-                this.parentNode.firstChild.nodeName;
-                with (this.parentNode) {
+                var parent = this.parentNode;
+
+                with (parent) {
                     replaceChild(this.firstChild, this);
-                    normalize();
+                    _normalize(parent);
                 }
             }).end();
         };
@@ -984,17 +1132,8 @@
 
         this.each(function (index, element) {
             var vertically_scrollable, horizontally_scrollable;
-            var checkVertical = direction === "vertical" || direction === "y" || !direction,
-                checkHorizontal = direction === "horizontal" || direction === "x";
-
-            if ($(element).getNiceScroll().length) {
-                if (checkHorizontal && $(element).getNiceScroll().opt.horizrailenabled) {
-                    return true;
-                }
-                if (checkVertical) {
-                    return true;
-                }
-            }
+            var checkVertical = !direction || direction === "vertical" || direction === "y",
+                checkHorizontal = direction && ( direction === "horizontal" || direction === "x");
 
             if ($(element).css('overflow') == 'scroll' ||
                 (($(element).css('overflowX') === 'scroll') && (checkHorizontal || !direction)) ||
@@ -1005,7 +1144,7 @@
 
             if (checkVertical || (!direction)) {
 
-                vertically_scrollable = (element.clientHeight < element.scrollHeight) && (
+                vertically_scrollable = (//element.clientHeight < element.scrollHeight) && (
                     $.inArray($(element).css('overflowY'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1);
 
                 if (!direction) {
@@ -1019,7 +1158,7 @@
                 }
             }
             if (checkHorizontal || (!direction)) {
-                horizontally_scrollable = (element.clientWidth < element.scrollWidth) && (
+                horizontally_scrollable = (//element.clientWidth < element.scrollWidth) && (
                 $.inArray($(element).css('overflowX'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1);
                 retValArray.push(horizontally_scrollable);
             }
