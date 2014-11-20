@@ -7,14 +7,16 @@
 --
 */
 (function ($) {
-    var _SimpleSelect = function (element, source, options) {
-        var _htmlToArray = function(source){
+    var _SimpleSelect = function (element, source, options, createdCb) {
+        var _htmlToArray = function (source) {
             var retArray = new Array();
-            $(source).find("option").each(function(){
+            $(source).find("option").each(function () {
                 retArray.push(this.innerText);
             });
             return retArray;
         }
+
+        var _createdCb = createdCb;
 
         var _element = element instanceof $ ? element[0] : element;
         var _itemsArray = (Object.prototype.toString.call(source) === '[object Array]') ? source : _htmlToArray(source);
@@ -53,6 +55,12 @@
             itemSetElementTextFunction: null,
             openOnSearch: false,
             updatePositionOnOpen: false,
+            arrowContent: {
+                arrowUp: '▲',
+                arrowDown: '▼',
+                arrowWidth: "auto",
+                arrowHeight: "auto"
+            }
         };
         var _arrowDiv = null;
 
@@ -103,6 +111,9 @@
             // it does not need calculation, so we skip it
             for (var o = 1; o < insertionLevel; o++) {
                 base = base.parentNode;
+                if (/OL/.test(base.nodeName)) {
+                    continue;
+                }
                 if (/BODY|HTML/.test(base.nodeName)) {
                     break; //we have gone WAY too far
                 }
@@ -113,13 +124,13 @@
             return itemsWrapperCoord;
         }
 
-        var _measureElement = function (element) {
+        var _measureElement = function (element, parentElement) {
             var el = $(element).clone(false);
             el.css({ visibility: "hidden", position: "absolute" });
-            el.appendTo("body");
+            el.appendTo(parentElement || "body");
 
-            var retVal = { height: el.outerHeight(), width: el.outerWidth() };
-            
+            var retVal = { height: el.outerHeight(true), width: el.outerWidth(true) };
+
             el.remove();
 
             return retVal;
@@ -129,7 +140,7 @@
             if (_options.drawPosition.indexOf(" right") !== -1) {
                 itemsWrapperCoordinates.left -= itemsWrapperWidth - $(element).outerWidth();
                 itemsWrapperCoordinates.right -= itemsWrapperWidth - $(element).outerWidth();
-                
+
                 return;
             }
             if (_options.drawPosition.indexOf("right") === 0) {
@@ -140,7 +151,7 @@
             }
         }
 
-        var _getInsertionLevel = function(element, goUp){
+        var _getInsertionLevel = function (element, goUp) {
             var _innerGetInsertionLevel = function (element, goUp, itemsWrapperCoordinates, currentY, lastFixedCoord, scrollableParent, limitYhasBeenReached) {
                 var insertionLevel = 1;
                 //$(element).scrollIntoViewIfNeeded(); //when element is visible, this heuristics works better
@@ -200,8 +211,8 @@
                 if (needsScrollX) {
                     scrollableX = $(elementParent).isScrollable("x");
                 }
-                    
-                if ((needsScrollY && !scrollableY) || (needsScrollX && !scrollableX)) { //if this element is to be overflown and has hidden overflow we go higher
+
+                if ((needsScrollY && !scrollableY) || (needsScrollX && !scrollableX) || elementParent.nodeName === "OL") { //if this element is to be overflown and has hidden overflow we go higher OR current element should not be inserted into
                     insertionLevel += _innerGetInsertionLevel(elementParent, goUp, _itemsWrapperCoordinates, _currentY, _lastFixedCoord, _scrollableParent, _limitYhasBeenReached);
                 } else {
                     var iterationHeightIncrement = 10;
@@ -214,7 +225,7 @@
 
                     _scrollableParent = element;
                     var _scrollableParentFound = $(_scrollableParent).isScrollable("y");
-                    
+
                     if (!_scrollableParentFound) {
                         while (!(_scrollableParentFound = $(_scrollableParent = _scrollableParent.parentNode).isScrollable("y")) && !/HTML/.test(_scrollableParent.nodeName));
                     }
@@ -274,8 +285,8 @@
                 throw (new Error("Failed to find insertion level!"));
             }
             currentItemsWrapper.insertionLevel = insertionLevel;
-    
-            _setWrapperPosition(currentItemsWrapper);
+
+            _setWrapperPosition(currentItemsWrapper, true);
         }
 
         var _updateWrapperPosition = function (currentItemsWrapper) {
@@ -286,14 +297,13 @@
 
             if (newInsertionLevel !== currentItemsWrapper.insertionLevel) {
                 currentItemsWrapper.insertionLevel = newInsertionLevel;
-                _setWrapperPosition(currentItemsWrapper);
+                $(currentItemsWrapper).remove();
+                var updateLevel = true;
             }
+
+            _setWrapperPosition(currentItemsWrapper, updateLevel);
         }
-        var _setWrapperPosition = function (currentItemsWrapper) {
-            var insertionElement = _element.parentNode;
-            for (var o = 1; o < currentItemsWrapper.insertionLevel ; o++) {
-                insertionElement = insertionElement.parentNode;
-            }
+        var _setWrapperPosition = function (currentItemsWrapper, updateLevel) {
             var itemsWrapperCoord = _getInsertionCoord(currentItemsWrapper.insertionLevel);
 
             if (_options.preserveElementMargin) {
@@ -303,9 +313,17 @@
 
             $(currentItemsWrapper).css({ top: itemsWrapperCoord.top, left: itemsWrapperCoord.left });
 
-            $(insertionElement).append(currentItemsWrapper);
+            if (updateLevel) {
+                var insertionElement = _element.parentNode;
+                for (var o = 1; o < currentItemsWrapper.insertionLevel ; o++) {
+                    insertionElement = insertionElement.parentNode;
+                }
 
-            currentItemsWrapper.style.display = "none";
+                $(insertionElement).append(currentItemsWrapper);
+
+                currentItemsWrapper.style.display = "none";
+                _isOpen = false;
+            }
             _isOpen = false;
         }
 
@@ -323,7 +341,7 @@
             var elementText = this.getElementText();
             _element.oldText = elementText;
 
-            _isAddedToDocument = currentItemsWrapper.id ? 
+            _isAddedToDocument = currentItemsWrapper.id ?
                 $("#" + currentItemsWrapper.id).get(0) === currentItemsWrapper :
                 false;
 
@@ -345,6 +363,8 @@
                 currentItemsWrapper.style.display = "";
 
                 this.setScroll();
+
+                _createdCb();
             } else {
                 currentItemsWrapper.style.display = "";
 
@@ -374,7 +394,7 @@
 
             _isOpen = true;
             this.updateScroll(!_isAddedToDocument);
-            
+
             if (!_options.doNotModifyElementText) {
                 $(_element).focus();
             } else {
@@ -488,27 +508,27 @@
             switch (dimension) {
                 case "max-width":
                     optionValue = _options.wrapperMaxWidth;
-                    dimensionVal = element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
+                    dimensionVal = $(element).outerWidth(true);//element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
                     break;
                 case "width":
                     optionValue = _options.wrapperWidth;
-                    dimensionVal = element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
+                    dimensionVal = $(element).outerWidth(true);//element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
                     break;
                 case "min-width":
                     optionValue = _options.wrapperMinWidth;
-                    dimensionVal = element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
+                    dimensionVal = $(element).outerWidth(true);//element.scrollWidth + parseFloat($(element).css("borderLeftWidth")) + parseFloat($(element).css("borderRightWidth"));
                     break;
                 case "max-height":
                     optionValue = _options.wrapperMaxHeight;
-                    dimensionVal = element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
+                    dimensionVal = $(element).outerHeight(true);//element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
                     break;
                 case "height":
                     optionValue = _options.wrapperHeight;
-                    dimensionVal = element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
+                    dimensionVal = $(element).outerHeight(true);//element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
                     break;
                 case "min-height":
                     optionValue = _options.wrapperMinHeight;
-                    dimensionVal = element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
+                    dimensionVal = $(element).outerHeight(true);//element.scrollHeight + parseFloat($(element).css("borderTopWidth")) + parseFloat($(element).css("borderBottomWidth"));
                     break;
             }
 
@@ -528,11 +548,11 @@
         this.setItems = function (source) {
             _itemsArray = (Object.prototype.toString.call(source) === '[object Array]') ? source : _htmlToArray(source);
             var currentItemsWrapper = self.getItemsWrapper();
+            self.updateScroll();
 
             _fillItemsWrapper();
 
             _updateWrapperPosition(currentItemsWrapper);
-            self.updateScroll();
         }
 
         var _fillItemsWrapper = function () {
@@ -574,6 +594,8 @@
                     $(this).removeHighlight();
                     var itemText = self.getElementText(this);
                     self.setElementText(itemText);
+                    _removeArrow();
+                    _addArrow();
                     if (!_options.preventClosingOnSelect) {
                         self.close();
                     }
@@ -587,6 +609,10 @@
 
                     $(this).parent().data({ isHovered: true });
                 });
+            }
+
+            if (_itemsArray.length) {
+                self.updateScroll();
             }
         }
 
@@ -624,7 +650,7 @@
                         if (curLevelNode === this) {
                             return;
                         }
-                        
+
                         curLevelNode = curLevelNode.parentNode;
                     }
 
@@ -645,6 +671,12 @@
                 var _innerElementText = innerElement['simpleSelect_ToString'].call(innerElement);
             } else {
                 var _innerElementText = (innerElement.nodeName === "input" || innerElement.nodeName === "textarea") ? $(innerElement).val() : (_options.useEscapedElementText ? $(innerElement).html() : $(innerElement).text()).replace(/(&nbsp)/g, ' ');
+            }
+
+            if (_arrowDiv) {
+                if ($(_arrowDiv).closest(innerElement).length > 0) {
+                    _innerElementText = _innerElementText.replace(_arrowDiv.innerText, "");
+                }
             }
 
             if (_innerElementText) {
@@ -677,11 +709,31 @@
         }
 
         this.setScroll = function () {
-            currentItemsWrapper = this.getItemsWrapper();
-
-            currentItemsWrapper.style.overflowY = "auto";
+            //currentItemsWrapper = this.getItemsWrapper();
+            //if (typeof ($(currentItemsWrapper).niceScroll) === "function") {
+            //    currentItemsWrapper.style.overflowY = "hidden";
+            //    $(currentItemsWrapper).niceScroll(_options.niceScrollOptions);
+            //} else {
+            //currentItemsWrapper.style.overflowY = "auto";
+            //}
         }
         this.updateScroll = function (firstOpen) {
+            //if (!firstOpen) {
+            //    if (typeof ($(this.getItemsWrapper()).niceScroll) === "function") {
+            //        if (this.isOpen()) {
+            //            var currentItemsWrapper = this.getItemsWrapper();
+            //            var $niceScrolls = $(currentItemsWrapper).getNiceScroll();
+            //            if (!$niceScrolls.length) {
+            //                $niceScrolls = $(currentItemsWrapper).niceScroll(_options.niceScrollOptions);
+            //            }
+            //            $niceScrolls.show();
+            //            $niceScrolls.resize();
+            //        } else {
+            //            $(this.getItemsWrapper()).getNiceScroll().hide();
+            //        }
+            //    }
+            //}
+
             if (!$(this.getItemsWrapper()).children(".simple-select-item:visible").not(".empty-list-item").length) {
                 _emptyListItem.style.display = "";
             } else {
@@ -700,7 +752,9 @@
                 $(innerElement).data("hasPlaceholder", true);
 
                 self.setElementText(_options.placeholderValue, true/*we don't need endless cycles here*/, innerElement);
-
+                //innerElement.style.color = _options.placeholderStyle.color;
+                //innerElement.style.font = _options.placeholderStyle.font === "element" ? $(_element).css("font") : _options.placeholderStyle.font;
+                //innerElement.style.textStyle = _options.placeholderStyle.textStyle;
                 for (prop in _options.placeholderStyle) {
                     innerElement.style[prop] = _options.placeholderStyle[prop];
                 }
@@ -722,7 +776,9 @@
                 $(innerElement).data("hasPlaceholder", false);
 
                 self.setElementText("", true, innerElement);
-
+                //innerElement.style.color = "";
+                //innerElement.style.font = "";
+                //innerElement.style.textStyle = "";
                 for (prop in _options.placeholderStyle) {
                     innerElement.style[prop] = "";
                 }
@@ -734,7 +790,7 @@
             }
 
             if (!_options.placeholderValue) {
-                return;
+                return text;
             }
 
             var innerElement = element ? element : _element;
@@ -782,17 +838,51 @@
             return freeId;
         }
 
+        var _updateArrowPos = function () {
+            if (!_arrowDiv) {
+                return _addArrow();
+            }
+
+            var arrowMeasurements = { height: $(_arrowDiv).outerHeight(true), width: $(_arrowDiv).outerWidth(true) };
+            $(_element).css("padding-right", "14px");
+            var insertionElement = _element;
+            var arrowPos = {
+                top: -parseFloat($(insertionElement).css("border-top-width")),
+                left: $(insertionElement).outerWidth() - arrowMeasurements.width
+            }
+            $(_arrowDiv).css({
+                top: arrowPos.top,
+                right: arrowPos.right,
+                left: arrowPos.left
+            });
+        }
         var _addArrow = function () {
             if (_options.drawArrow) {
                 _arrowDiv = document.createElement("div");
                 _arrowDiv.className = "simple-select-arrow";
-                _arrowDiv.innerText = "▼";
+                _arrowDiv.innerText = _options.arrowContent.arrowDown;
+
+                var arrowMeasurements = _measureElement(_arrowDiv, _element);
+                if (_options.arrowContent.arrowWidth !== "css") {
+                    if (_options.arrowContent.arrowWidth === "auto") {
+                        arrowMeasurements.width = 12;
+                    } else {
+                        arrowMeasurements.width = _options.arrowContent.arrowWidth;
+                    }
+                }
+                if (_options.arrowContent.arrowHeight !== "css") {
+                    if (_options.arrowContent.arrowHeight === "auto") {
+                        arrowMeasurements.height = $(_element).outerHeight();
+                    } else {
+                        arrowMeasurements.height = _options.arrowContent.arrowHeight;
+                    }
+                }
 
                 $(_element).css("padding-right", "14px");
                 var insertionElement = _element;
                 var arrowPos = {
-                    top: 0,
-                    left: $(insertionElement).outerWidth() - 12
+                    top: -parseFloat($(insertionElement).css("border-top-width")),
+                    left: $(insertionElement).outerWidth() - arrowMeasurements.width
                 }
 
                 while ((($(insertionElement).css("position") !== "absolute") &&
@@ -804,14 +894,13 @@
                     insertionElement = insertionElement.parentNode;
                 }
                 $(_arrowDiv).css({
-
-                    height: $(_element).height(),
-
                     top: arrowPos.top,
                     right: arrowPos.right,
                     left: arrowPos.left
-
                 });
+                if (_options.arrowContent.arrowHeight !== "css") {
+                    $(_arrowDiv).css({ height: arrowMeasurements.height });
+                }
 
                 $(insertionElement).append(_arrowDiv);
                 var _redirectCall = function (event) {
@@ -831,17 +920,19 @@
         }
         var _setArrowDown = function () {
             if (_arrowDiv) {
-                _arrowDiv.innerText = "▼";
+                _arrowDiv.innerText = _options.arrowContent.arrowDown;
                 $(_arrowDiv).css({ top: parseFloat($(_arrowDiv).css("top")) + 1 });
             }
+            _updateArrowPos();
             //need to move it up a bit
             $(_arrowDiv).css("line-height", "");
         }
         var _setArrowUp = function () {
             if (_arrowDiv) {
-                _arrowDiv.innerText = "▲";
-                $(_arrowDiv).css({ top: parseFloat($(_arrowDiv).css("top"))- 1 });
+                _arrowDiv.innerText = _options.arrowContent.arrowUp;
+                $(_arrowDiv).css({ top: parseFloat($(_arrowDiv).css("top")) - 1 });
             }
+            _updateArrowPos();
         }
         var _wasClickedInside = function (e) {
             if (!self.isOpen()) {
@@ -855,11 +946,12 @@
 
         var _init = function () {
             if (options) {
-                for (var opt in _options) {
-                    if ((typeof _options[opt] != "undefined") && (typeof options[opt] != "undefined")) {
-                        _options[opt] = options[opt];
-                    }
-                }
+                //for (var opt in _options) {
+                //    if ((typeof _options[opt] != "undefined") && (typeof options[opt] != "undefined")) {
+                //        _options[opt] = options[opt];
+                //    }
+                //}
+                $.extend(true, _options, options);
             }
 
             $(_element).off('keydown', _element_keydown);
@@ -884,6 +976,11 @@
             if (this.isOpen()) {
                 this.close();
             }
+            //if (typeof ($(_itemsWrapper).getNiceScroll) === "function") {
+            //    if ($(_itemsWrapper).getNiceScroll().length) {
+            //        $(_itemsWrapper).getNiceScroll().remove();
+            //    }
+            //}
 
             $(_element).off('keydown', _element_keydown);
 
@@ -893,6 +990,7 @@
                 $(_element).off(_options.searchEvent, _searchEvent_happened);
             }
 
+            //$(this.getItemsWrapper()).remove();
             if (_itemsWrapper) {
                 _itemsWrapper.parentNode.removeChild(_itemsWrapper);
             }
@@ -950,7 +1048,7 @@
             case 40: //down arrow
                 if ($(currentItemsWrapper).data("isHovered")) {
                     currentSimpleSelect.setElementText("", true);
-                    
+
                     return false;
                 }
 
@@ -1013,13 +1111,14 @@
         }
     }
 
-    $.fn.makeSimpleSelect = function (itemsArray, options) {
-        return this.each(function () {
+    $.fn.makeSimpleSelect = function (itemsArray, options, cb) {
+        var thisLength = this.length;
+        return this.each(function (index, element) {
             var element = $(this);
 
             if (element.data('simpleSelect')) return;
 
-            var _simpleSelect = new _SimpleSelect(this, itemsArray, options);
+            var _simpleSelect = new _SimpleSelect(this, itemsArray, options, cb);
 
             element.data('simpleSelect', _simpleSelect);
         });
@@ -1126,14 +1225,32 @@
         };
     }
 
-    
+
     $.fn.isScrollable = function (direction) {
         var retValArray = new Array();
 
         this.each(function (index, element) {
             var vertically_scrollable, horizontally_scrollable;
             var checkVertical = !direction || direction === "vertical" || direction === "y",
-                checkHorizontal = direction && ( direction === "horizontal" || direction === "x");
+                checkHorizontal = direction && (direction === "horizontal" || direction === "x");
+
+            //if ($(element).getNiceScroll().length) {
+
+            //    if (checkHorizontal) {
+            //        var horizontalEnabled = true;
+            //        var getNiceScrollArray = $(element).getNiceScroll();
+            //        for (var o = 0; o < getNiceScrollArray.length; o++) {
+            //            horizontalEnabled = horizontalEnabled && getNiceScrollArray[o].opt.horizrailenabled;
+            //        }
+
+            //        retValArray.push(horizontalEnabled);
+            //        return;
+            //    }
+            //    if (checkVertical) {
+            //        retValArray.push(true);
+            //        return;
+            //    }
+            //}
 
             if ($(element).css('overflow') == 'scroll' ||
                 (($(element).css('overflowX') === 'scroll') && (checkHorizontal || !direction)) ||
