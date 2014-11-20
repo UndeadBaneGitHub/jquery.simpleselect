@@ -7,6 +7,7 @@
 --
 */
 (function ($) {
+(function ($) {
     var _SimpleSelect = function (element, source, options, createdCb) {
         var _htmlToArray = function (source) {
             var retArray = new Array();
@@ -302,6 +303,7 @@
             }
 
             _setWrapperPosition(currentItemsWrapper, updateLevel);
+            _updateArrowPos();
         }
         var _setWrapperPosition = function (currentItemsWrapper, updateLevel) {
             var itemsWrapperCoord = _getInsertionCoord(currentItemsWrapper.insertionLevel);
