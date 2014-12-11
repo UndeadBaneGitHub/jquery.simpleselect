@@ -1,12 +1,11 @@
 /* jquery.simpleselect
--- version 0.2.1
+-- version 0.3.2
 -- copyright 2014 UndeadBane*2014
 -- licensed under the MIT
 --
 -- https://github.com/UndeadBaneGitHub/jquery.simpleselect
 --
 */
-(function ($) {
 (function ($) {
     var _SimpleSelect = function (element, source, options, createdCb) {
         var _htmlToArray = function (source) {
@@ -323,10 +322,9 @@
 
                 $(insertionElement).append(currentItemsWrapper);
 
-                currentItemsWrapper.style.display = "none";
-                _isOpen = false;
+                //currentItemsWrapper.style.display = "none";
+                //_isOpen = false;
             }
-            _isOpen = false;
         }
 
         this.open = function () {
@@ -365,14 +363,15 @@
                 currentItemsWrapper.style.display = "";
 
                 this.setScroll();
-
-                _createdCb();
+                if (_createdCb && typeof(_createdCb) === "function") {
+                    _createdCb();
+                }
             } else {
-                currentItemsWrapper.style.display = "";
-
                 if (_options.updatePositionOnOpen) {
                     _updateWrapperPosition(currentItemsWrapper);
                 }
+
+                currentItemsWrapper.style.display = "";
             }
 
             //select and scroll element containing the text into view
@@ -549,12 +548,14 @@
 
         this.setItems = function (source) {
             _itemsArray = (Object.prototype.toString.call(source) === '[object Array]') ? source : _htmlToArray(source);
-            var currentItemsWrapper = self.getItemsWrapper();
-            self.updateScroll();
+            if (_itemsWrapper) {
+                var currentItemsWrapper = self.getItemsWrapper();
+                self.updateScroll();
 
-            _fillItemsWrapper();
+                _fillItemsWrapper();
 
-            _updateWrapperPosition(currentItemsWrapper);
+                _updateWrapperPosition(currentItemsWrapper);
+            }
         }
 
         var _fillItemsWrapper = function () {
@@ -629,9 +630,7 @@
                 _emptyListItem.id = "simple-select-item empty-list-item";
                 _emptyListItem.innerHTML = _options.emptyListItemContent;
                 $(_itemsWrapper).append(_emptyListItem);
-
-                _emptyListItem.style.display = "none";
-
+                
                 _fillItemsWrapper();
 
                 _maximumNestingDepth = Math.max(_maximumNestingDepth, _getMaximumDepth(_itemsWrapper));
@@ -688,10 +687,10 @@
             }
         }
         this.setElementText = function (newText, doNotUsePlaceholder, element) {
-            if (_options.doNotModifyElementText) {
+            if (_options.doNotModifyElementText || !newText) {
                 return;
             }
-
+            
             var _newText = newText.trim();
 
             var innerElement = element ? element : _element;
@@ -852,6 +851,15 @@
                 top: -parseFloat($(insertionElement).css("border-top-width")),
                 left: $(insertionElement).outerWidth() - arrowMeasurements.width
             }
+
+            while ((($(insertionElement).css("position") !== "absolute") &&
+                    ($(insertionElement).css("position") !== "relative")) &&
+                    (!/BODY|HTML/.test(insertionElement.nodeName))) {
+                                arrowPos.top += insertionElement.offsetTop;
+                                arrowPos.left += insertionElement.offsetLeft;
+
+                                insertionElement = insertionElement.parentNode;
+                            }
             $(_arrowDiv).css({
                 top: arrowPos.top,
                 right: arrowPos.right,
@@ -861,10 +869,10 @@
         var _addArrow = function () {
             if (_options.drawArrow) {
                 _arrowDiv = document.createElement("div");
-                _arrowDiv.className = "simple-select-arrow";
+                _arrowDiv.className = "simple-select-arrow arrow-down";
                 _arrowDiv.innerText = _options.arrowContent.arrowDown;
 
-                var arrowMeasurements = _measureElement(_arrowDiv, _element);
+                var arrowMeasurements = _measureElement(_arrowDiv, _element.parentNode);
                 if (_options.arrowContent.arrowWidth !== "css") {
                     if (_options.arrowContent.arrowWidth === "auto") {
                         arrowMeasurements.width = 12;
@@ -924,6 +932,7 @@
             if (_arrowDiv) {
                 _arrowDiv.innerText = _options.arrowContent.arrowDown;
                 $(_arrowDiv).css({ top: parseFloat($(_arrowDiv).css("top")) + 1 });
+                $(_arrowDiv).removeClass("arrow-up").addClass("arrow-down");
             }
             _updateArrowPos();
             //need to move it up a bit
@@ -933,6 +942,7 @@
             if (_arrowDiv) {
                 _arrowDiv.innerText = _options.arrowContent.arrowUp;
                 $(_arrowDiv).css({ top: parseFloat($(_arrowDiv).css("top")) - 1 });
+                $(_arrowDiv).removeClass("arrow-down").addClass("arrow-up");
             }
             _updateArrowPos();
         }
@@ -1264,7 +1274,7 @@
             if (checkVertical || (!direction)) {
 
                 vertically_scrollable = (//element.clientHeight < element.scrollHeight) && (
-                    $.inArray($(element).css('overflowY'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1);
+                    $.inArray($(element).css('overflowY'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1 && $.inArray($(element).css('overflowY'), ['hidden']) === -1);
 
                 if (!direction) {
                     if (vertically_scrollable) {
@@ -1278,7 +1288,7 @@
             }
             if (checkHorizontal || (!direction)) {
                 horizontally_scrollable = (//element.clientWidth < element.scrollWidth) && (
-                $.inArray($(element).css('overflowX'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1);
+                $.inArray($(element).css('overflowX'), ['scroll', 'auto']) !== -1 || $.inArray($(element).css('overflow'), ['scroll', 'auto']) !== -1 && $.inArray($(element).css('overflowX'), ['hidden']) === -1);
                 retValArray.push(horizontally_scrollable);
             }
         });
