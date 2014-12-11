@@ -1,5 +1,5 @@
 #jQuery.SimpleSelect
-v. 0.1.1 29-06-2014
+v. 0.3.2 11-12-2014
  - [Repo: github.com/UndeadBaneGitHub/jquery.simpleselect](https://github.com/UndeadBaneGitHub/jquery.simpleselect)
 
 Have you ever faced a situation, when you desperately need to open <select> programmaticaly, but you can't?
